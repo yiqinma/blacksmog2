@@ -1,0 +1,59 @@
+int buttonPin0 = 2;
+int buttonPin1 = 3;
+bool pressed = false;
+bool pressed1 = false;
+bool pressed2 = false;
+int LEDPin = 4;
+
+void setup(){
+  Serial.begin(9600);
+  pinMode(buttonPin0, INPUT_PULLUP);
+  pinMode(LEDPin, OUTPUT);
+  pinMode(buttonPin1, INPUT_PULLUP);
+}
+
+void loop(){
+
+  if(digitalRead(buttonPin0) == HIGH){
+    if(!pressed){
+      Serial.print(0);  
+    }
+    pressed = true;
+  }else{
+    if(pressed){
+      Serial.print(1);  
+    }
+    pressed = false;
+  }
+  
+  if(pressed){
+    digitalWrite(LEDPin,LOW);
+  }else{
+    digitalWrite(LEDPin,HIGH);
+  }
+
+  if(digitalRead(buttonPin1) == HIGH){
+    if(!pressed1){
+      Serial.print(2);  
+    }
+    pressed1 = true;
+  }else{
+    if(pressed1){
+      Serial.print(3);  
+    }
+    pressed1 = false;
+  }
+
+  if(digitalRead(buttonPin1) == HIGH && digitalRead(buttonPin0) == HIGH){
+    if(!pressed2){
+      Serial.print(4);  
+    }
+    pressed2 = true;
+  }else{
+    if(pressed2){
+      Serial.print(5);  
+    }
+    pressed2 = false;
+  }
+
+}
