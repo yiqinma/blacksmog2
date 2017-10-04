@@ -1,0 +1,462 @@
+import ddf.minim.*;
+import processing.serial.*;
+
+Serial myPort;
+
+//PImage[] bz = new PImage[3];
+boolean GameOver = true;
+PFont font;
+
+Candy[] can = new Candy[16];
+RigidBody player;
+Button Start;
+
+Minim minim;
+AudioPlayer music_back;
+AudioPlayer music_start;
+AudioPlayer music_choice;
+AudioPlayer music_fail;
+AudioPlayer music_point;
+
+int level = 0;
+
+color[] bk = new color[3];
+
+void setup () {
+  size (800, 360);
+
+  imageMode (CENTER);
+  textSize (30);
+
+  font = loadFont ("Calibri-Italic-48.vlw");
+  textFont (font);
+
+  // can = new Candy(1);
+  player = new RigidBody ();
+  Start = new Button ("Start", width/2, 300, 150, 50);
+
+  minim = new Minim (this);
+  music_back = minim.loadFile ("music.mp3");
+  music_start = minim.loadFile ("start.wav");
+  music_fail = minim.loadFile ("fail.wav");
+  music_choice = minim.loadFile ("choice.wav");
+  music_point = minim.loadFile ("point.wav");
+  music_start.loop (0);
+
+  bk[0] = color (189, 231, 237);
+  bk[1] = color (27, 75, 86);
+  bk[2] = color (0, 123, 125);
+  
+  printArray(Serial.list());
+  String portName = Serial.list()[3];
+  myPort = new Serial(this, portName, 9600);
+}
+
+long timer;
+boolean level_over = false;
+int level_cnt = 0;
+long coll_timer;
+long choice_timer = 0;
+int value;
+
+void draw () {
+  if ( myPort.available() > 0) {  // If data is available,
+    value = myPort.read() - 48;         // read it and store it in val
+  }
+  switch (level) {
+  case 0:   
+    background (244, 130, 36);
+    text ("Black Smog", 16, 40);
+    text ("Push the button to let the little black \nsmog leap over the obstacles.\nYou will lose 1 point everytime the \nsmog hit an obstacle. \nAfter 10 times, you will lose the game.\nGood luck!", 73, 86);
+    noStroke();
+    Start.update ();
+
+    if (Start.overRect ()) {
+      if (millis () - choice_timer > 3000) {
+        choice_timer = millis ();
+        music_choice.loop (0);
+      }
+
+      if (mousePressed) {
+        level ++;
+        can[0] = new Candy(1);
+
+        for (int i = 1; i < 16; i ++) {
+          //         can[i] = new Candy((int)((i-1)/5+2), i);
+          can[i] = new Candy((int)random (2, 5), i);
+        }
+        player = new RigidBody ();
+        music_back.loop ();
+      }
+    }
+
+    break;
+  case 1:  
+
+  case 2:  
+
+  case 3:  
+    background (bk[level-1]);
+
+
+    can[0].display ();
+    for (int i = 1; i < 16; i ++) {
+      if (can[i].dead ()) {
+        if (level_over == true) {
+          level_cnt ++;
+          can[i] = new Candy(1);
+        } else {
+          //        can[i] = new Candy((int)((i-1)/5+2), i);
+          can[i] = new Candy((int)random (2, 5), i);
+          //         println ((int)(i/5+1));
+        }
+      }
+
+      if (millis () - coll_timer > 1000) {
+        if (can[i].collision ()) {
+          player.score --;
+          if (player.score < 0) {
+            level = 5;
+            music_back.pause ();
+            music_fail.loop (0);
+          }
+
+          music_point.loop (0);
+          //         println (i);
+          coll_timer = millis ();
+        }
+      }
+      can[i].display ();
+      //    println (i, can[i].name);
+    }  
+    //    println(level_cnt);
+    if (millis() - timer > 100000) {
+      level_over = true;
+    }
+    if (level_cnt == 15) {
+      println (level_cnt);
+      level_cnt = 0;
+      level_over = false;
+
+      timer = millis ();
+      level ++;
+      if (level < 4) {
+        can[0] = new Candy(1);
+        for (int i = 1; i < 16; i ++) {
+          can[i] = new Candy((int)random (2, 5), i);
+        }
+      }
+    }
+    //    println (level_cnt);
+    player.score ();
+    player.update ();
+
+    player.display ();
+    break;
+  case 4: 
+    background (255, 128, 0);
+    text ("Congratulations! You won!", 180, 160);
+    break;
+  case 5: 
+    background (255, 128, 0);
+    text ("Game over\nPlease press \"R\" to restart the game", 160, 160);
+
+    break;
+  default: 
+    break;
+  }
+  if (level < 4 && level > 0) {
+    fill (102);
+    noStroke ();
+    //    println (mouseY);
+    rect (0, 340, width, 20);
+  }
+}
+
+class Candy {
+  float x, y; 
+  int rectLength;
+  int rectWidth;
+  float rectMoveSpeed;
+  int type;
+  PImage img;
+  String name;
+
+  boolean OverCandy = false;
+  boolean MoveSpeedMask = false;
+
+  Candy(int _tp) {    
+    type = _tp;
+
+    x = random (width, width * 1.5);   
+    //    x = width + random (0, 1) * _k;
+    switch (type) {
+    case 1:       // sun
+      name = "sun" + level + ".png";
+      rectLength = 100;
+      x = width/1.35;
+      y = height/4;
+      break;
+    case 4:       // tree
+      name = "tree" + level + "-" + (int)random (1, 3) + ".png";
+      rectLength = (int)random(50, 130);
+      rectWidth = (int)(rectLength/ random (3, 4));
+      y = height - rectLength/2;
+      break;
+    case 3:       // cloud
+      name = "cloud" + level + ".png";
+      rectWidth  = (int)random(80, 150);
+      rectLength = (int)(rectWidth/ random (3, 4));
+      y = random(40, 80);
+      break;
+    case 2:       // floor
+      name = "floor" + level + "-" + (int)random (1, 5) + ".png";
+      rectLength = (int)random(120, 180);
+      rectWidth = (int)(rectLength/ random (1, 3));
+      y = height - rectLength/2;
+      break;
+    }
+
+    img = loadImage (name);
+    img.resize (rectWidth, rectLength);
+
+    rectMoveSpeed = level*2;
+  }
+
+  Candy(int _tp, int _k) {    
+    type = _tp;
+
+    x = width + random (0.9, 1.1) * _k * width/20;
+    switch (type) {
+    case 1:       // sun
+      name = "sun" + level + ".png";
+      rectLength = 100;
+      x = width/1.35;
+      y = height/4;
+      break;
+    case 4:       // tree
+      name = "tree" + level + "-" + (int)random (1, 3) + ".png";
+      rectLength = (int)random(50, 130);
+      rectWidth = (int)(rectLength/ random (3, 4));
+      y = height - rectLength/2;
+      break;
+    case 3:       // cloud
+      name = "cloud" + level + ".png";
+      rectWidth  = (int)random(80, 180);
+      rectLength = (int)(rectWidth/ random (1.6, 2));
+      y = random(40, 80);
+      break;
+    case 2:       // floor
+      name = "floor" + level + "-" + (int)random (1, 5) + ".png";
+      rectLength = (int)random(120, 180);
+      rectWidth = (int)(rectLength/ random (1, 3));
+      y = height - rectLength/2;
+      break;
+    default: 
+      return;
+    }
+
+    img = loadImage (name);
+    img.resize (rectWidth, rectLength);
+
+    rectMoveSpeed = level*2+1;
+  }
+
+  boolean dead () {
+    if (x<=-rectWidth) {
+      return true;
+    }
+
+    return false;
+  }
+
+  boolean collision () {
+    if (x - rectWidth/2 < player.location.x && x > player.location.x - rectWidth/2) {
+      if (type == 2 || type == 4) {
+        if (player.location.y > height - rectLength+height/30) {
+          return true;
+        }
+      }
+      if (type == 3) {
+        //  println (player.location.y, y - rectLength/2, y + rectLength/2, rectLength);
+        if (player.location.y > y - rectLength/2 && player.location.y < y + rectLength/2) {
+          //       println ("dd");
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  void updata () {   
+    //if (keyPressed) {
+    //  if (key == 'e' || key == 'E') {
+    //    rectMoveSpeed += 0.2;
+    //  }
+    //}
+    if(key1IsPressed()){
+      rectMoveSpeed += 0.2;
+    }
+
+    if (type > 1) {
+      x-=rectMoveSpeed;
+    }
+  }
+
+  void display() { 
+    updata ();
+
+    image (img, x, y);
+  }
+}
+
+class RigidBody {
+  PVector acceleration;
+  PVector velocity;
+  PVector location;
+  float topspeed;
+  int score = 0, a = 8;
+  PImage icon;
+
+  RigidBody () {
+    acceleration = new PVector (0, 0.5);
+    velocity =  new PVector (0, 0);
+    location =  new PVector (width/3.5, height/2);
+    topspeed = 10;
+    score = 10;
+    a = 8;
+
+    icon = loadImage ("black-cloud.png");
+    icon.resize (50, 30);
+  }
+
+  void score () {
+    strokeJoin(ROUND);
+    strokeWeight(10);
+    stroke(244, 130, 36);
+    fill(244, 130, 36);
+    rect(30, 40, 50, 60);
+    fill(255);
+    text(score, 44 - a, 80);
+    if (score < 10) {
+      a = 0;
+    }
+  }
+
+  void update () {
+    velocity.add (acceleration);
+    velocity.limit (topspeed);
+    location.add (velocity);
+
+    if (key0IsPressed()) {
+      velocity = new PVector (0, -5);
+    }
+
+    if (location.y > height-20) {
+      velocity = new PVector (0, -5);
+    }
+    if (location.y < 0) {
+      velocity = new PVector (0, 5);
+    }
+  }
+
+  /*    boolean collision () {
+   if (can.RectLocationH.x < location.x && can.RectLocationH.x+can.RectLocationH.z > location.x) {
+   if (can.RectLocationH.y < location.y && can.RectLocationL.y > location.y) {
+   return false;
+   }
+   else
+   return true;
+   }
+   
+   return false;
+   }*/
+
+  void display () {
+    pushMatrix();
+    translate(location.x, location.y);
+
+    image (icon, 0, 0);
+    popMatrix();
+  }
+} 
+
+class Button {
+  color currentColor;
+  color rectHighLight;
+  color rectColor;
+
+  int rectX, rectY;
+  int rectWidth, rectHeight;
+
+  String name = "Button";
+  color titleColor = 102;
+  int titleSize = 36;
+
+  Button (String ButName, int LocationX, int locationY, int WinWidth, int WinHeight) {
+    rectHighLight = color (204);
+    rectColor = color (255);
+
+    rectX = LocationX;
+    rectY = locationY;    
+
+    rectWidth = WinWidth;
+    rectHeight = WinHeight;
+
+    name = ButName;
+    titleSize = WinWidth / 4;
+  } 
+
+  void update () {
+    if (overRect ())
+      fill (rectHighLight);
+    else
+      fill (rectColor);
+
+    rectMode (CENTER);
+    strokeWeight (0);
+    rect (rectX, rectY, rectWidth, rectHeight);
+
+    textAlign (CENTER);
+    fill (titleColor);
+    textSize (titleSize);
+    text (name, rectX, rectY+rectHeight/4, rectWidth, rectHeight);
+
+    rectMode (CORNER);
+    textAlign (CORNER);
+  }
+
+  boolean overRect () {
+    if (mouseX >= rectX-rectWidth/2 && mouseX <= rectX+rectWidth/2 && mouseY >= rectY-rectHeight/2 && mouseY <= rectY+rectHeight/2)
+      return true;
+    else
+      return false;
+  }
+}
+
+void keyPressed () {
+  if (key == 'r') {
+    level = 1;
+    can[0] = new Candy(1);
+
+    for (int i = 1; i < 16; i ++) {
+      can[i] = new Candy((int)random (2, 5), i);
+    }
+    player = new RigidBody ();
+  }
+}
+
+boolean key0IsPressed(){
+  if(value == 1 || value == 5)
+    return true;
+  else
+    return false;
+}
+
+boolean key1IsPressed(){
+  if(value == 3 || value == 5)
+    return true;
+  else
+    return false;
+}
